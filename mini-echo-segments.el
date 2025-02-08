@@ -45,6 +45,7 @@
 (defvar magit-blame-mode-lighter)
 (defvar display-time-string)
 (defvar lsp-bridge-mode-lighter)
+(defvar eglot-mode-line-format)
 (defvar eglot--mode-line-format)
 (defvar envrc--status)
 (defvar flycheck-last-status-change)
@@ -838,7 +839,10 @@ Segment appearance depends on var `vc-display-status' and faces like
   "Return eglot server state"
   :fetch
   (when (bound-and-true-p eglot--managed-mode)
-    (mini-echo-segment--extract eglot--mode-line-format)))
+    (mini-echo-segment--extract
+     (if (>= emacs-major-version 31)
+         eglot-mode-line-format
+       eglot--mode-line-format))))
 
 (mini-echo-define-segment "envrc"
   "Return envrc status of current buffer."

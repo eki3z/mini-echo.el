@@ -74,6 +74,8 @@
 (defvar treesit-explore-mode)
 (defvar treesit-inspect-mode)
 (defvar treesit--inspect-name)
+(defvar org-src--source-type)
+(defvar org-src--babel-info)
 
 (declare-function profiler-profile-type "profiler")
 (declare-function profiler-profile-diff-p "profiler")
@@ -81,6 +83,7 @@
 (declare-function xwidget-webkit-current-session "xwidget")
 (declare-function xwidget-webkit-estimated-load-progress "xwidget")
 (declare-function xwidget-webkit-title "xwidget")
+(declare-function org-src-edit-buffer-p "org-src")
 (declare-function projectile-project-root "ext:projectile")
 (declare-function ffip-project-root "ext:ffip")
 (declare-function keycast--format "ext:keycast")
@@ -241,6 +244,11 @@ Otherwise, show mise section always."
 (defface mini-echo-blob-revision
   '((t (:inherit mini-echo-red)))
   "Face for mini-echo segment of blob revision."
+  :group 'mini-echo)
+
+(defface mini-echo-special-minor
+  '((t (:inherit mini-echo-magenta-bold)))
+  "Face for mini-echo segment of special minor mode."
   :group 'mini-echo)
 
 (defface mini-echo-status-local
@@ -501,19 +509,8 @@ with ellipsis."
 
 (defun mini-echo-buffer-name ()
   "Return current buffer name."
-  (cond
-   (;; TODO support timemachine file
-    (or (bound-and-true-p magit-blob-mode))
-    (save-match-data
-      (let ((str (buffer-name)))
-        (when (string-match "\\(.+\\)\\.~\\(.+\\)~" str)
-          (concat (file-name-nondirectory (match-string 1 str))
-                  (propertize (concat "@" (substring (match-string 2 str) 0 7))
-                              'face 'mini-echo-blob-revision))))))
-   ((bound-and-true-p atomic-chrome-edit-mode)
-    (mini-echo-segment--print (buffer-name) nil 25))
-   (t (let ((uniquify-buffer-name-style 'forward))
-        (buffer-name)))))
+  (let ((uniquify-buffer-name-style 'forward))
+    (buffer-name)))
 
 (defun mini-echo-buffer-name-with-status ()
   "Return last part of buffer name with status."
@@ -773,7 +770,39 @@ Segment appearance depends on var `vc-display-status' and faces like
               (propertize (or progress "") 'face 'mini-echo-yellow-bold)
               (propertize title 'face 'mini-echo-green-bold)))))
 
+(mini-echo-define-segment "org-src"
+  "Return info of `org-src-edit-buffer'."
+  :fetch
+  (when (org-src-edit-buffer-p)
+    (let* ((type (symbol-name org-src--source-type))
+           (lang (car org-src--babel-info))
+           (name (buffer-name)))
+      (save-match-data
+        (when (string-match "\\*Org Src \\([^[]*\\)\\[ .* \\]\\*" name)
+          (setq name (match-string 1 name))))
+      (format "%s|%s|%s %s"
+              (propertize lang 'face 'mini-echo-blue)
+              (propertize type 'face 'mini-echo-yellow)
+              (propertize name 'face 'mini-echo-red)
+              (propertize " ORG-SRC" 'face 'mini-echo-special-minor)))))
+
 ;;; Third-party segments
+
+;; TODO support timemachine file
+
+;; Add more info e.g. steps between blob and head
+(mini-echo-define-segment "magit-blob"
+  "Return info of `magit-blob' file."
+  :fetch
+  (when (bound-and-true-p magit-blob-mode)
+    (save-match-data
+      (let ((str (buffer-name)))
+        (when (string-match "\\(.+\\)\\.~\\(.+\\)~" str)
+          (concat
+           (file-name-nondirectory (match-string 1 str))
+           (propertize (concat "@" (substring (match-string 2 str) 0 7))
+                       'face 'mini-echo-blob-revision)
+           (propertize " Blob" 'face 'mini-echo-special-minor)))))))
 
 (mini-echo-define-segment "flycheck"
   "Return flycheck diagnostics of current buffer."
@@ -894,15 +923,16 @@ Segment appearance depends on var `vc-display-status' and faces like
   "Return info of atomic chrome edit buffers."
   :fetch
   (when (bound-and-true-p atomic-chrome-edit-mode)
-    (propertize "Atomic" 'face 'mini-echo-cyan)))
+    (concat (mini-echo-segment--print (buffer-name) nil 25)
+            (propertize " Atomic" 'face 'mini-echo-special-minor))))
 
 (mini-echo-define-segment "blame"
   "Return info of blame buffers."
   :fetch
   (when (bound-and-true-p magit-blame-mode)
     (if (string-empty-p magit-blame-mode-lighter)
-        (propertize "Blame" 'face 'mini-echo-cyan)
-      (mini-echo-segment--print magit-blame-mode-lighter 'mini-echo-cyan))))
+        (propertize "Blame" 'face 'mini-echo-special-minor)
+      (mini-echo-segment--print magit-blame-mode-lighter 'mini-echo-special-minor))))
 
 (mini-echo-define-segment "helpful"
   "Return info of helpful buffers."
@@ -965,7 +995,7 @@ Segment appearance depends on var `vc-display-status' and faces like
   :fetch
   (when (and (bound-and-true-p wgrep-prepared)
              wgrep-sibling-buffer)
-    (propertize "Wgrep" 'face 'mini-echo-yellow-bold)))
+    (propertize "Wgrep" 'face 'mini-echo-special-minor)))
 
 ;; TODO add more segments
 

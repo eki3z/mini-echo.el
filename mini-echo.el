@@ -176,8 +176,12 @@ Otherwise, return nil."
   (with-current-buffer (current-buffer)
     ;; NOTE return the first match, so the former has higher priority
     (pcase major-mode
+      ((guard (and (fboundp 'org-src-edit-buffer-p) (org-src-edit-buffer-p)))
+       '(:both ("org-src" "buffer-position" "buffer-size" "flymake")))
       ((guard (bound-and-true-p atomic-chrome-edit-mode))
-       '(:both ("atomic-chrome" "buffer-name" "buffer-position" "flymake")))
+       '(:both ("atomic-chrome" "buffer-position" "flymake")))
+      ((guard (bound-and-true-p magit-blob-mode))
+       '(:both ("magit-blob" "buffer-position" "buffer-size")))
       ((guard (or (memq major-mode '(git-commit-elisp-text-mode git-rebase-mode))
                   (string-match-p "\\`magit-.*-mode\\'" (symbol-name major-mode))))
        '(:both ("major-mode" "project")))

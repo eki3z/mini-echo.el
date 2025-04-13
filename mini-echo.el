@@ -129,6 +129,13 @@ Format is a list of three argument:
   :type '(symbol number number)
   :group 'mini-echo)
 
+(defcustom mini-echo-skip-update-functions
+  '(next-error-no-select
+    previous-error-no-select)
+  "List of functions which will skip update mini echo during running."
+  :type '(repeat function)
+  :group 'mini-echo)
+
 (defface mini-echo-minibuffer-window
   '((t :inherit default))
   "Face used to highlight the minibuffer window.")
@@ -142,7 +149,8 @@ Format is a list of three argument:
 (defvar mini-echo--default-rule nil)
 (defvar-local mini-echo--selected-rule nil)
 (defvar mini-echo--toggled-segments nil)
-(defvar mini-echo--info-last-built nil)
+(defvar mini-echo--info-cache nil)
+(defvar mini-echo--skip-update nil)
 
 
 ;;; Segments functions
@@ -296,6 +304,12 @@ If optional arg HIDE is non-nil, disable the mode instead."
   "Fontify whole window with user defined face attributes."
   (face-remap-add-relative 'default 'mini-echo-minibuffer-window))
 
+(defun mini-echo-skip-update-functions-advice (orig-func &rest args)
+  (setq mini-echo--skip-update t)
+  (unwind-protect
+      (apply orig-func args)
+    (setq mini-echo--skip-update nil)))
+
 (defun mini-echo-init-echo-area (&optional deinit)
   "Initialize echo area and minibuffer in mini echo.
 If optional arg DEINIT is non-nil, remove all overlays."
@@ -313,7 +327,9 @@ If optional arg DEINIT is non-nil, remove all overlays."
         (advice-remove 'message #'mini-echo-update-overlays-before-message)
         (remove-hook 'window-size-change-functions #'mini-echo-update-overlays-when-resized)
         (remove-hook 'minibuffer-inactive-mode-hook #'mini-echo-fontify-minibuffer-window)
-        (remove-hook 'minibuffer-setup-hook #'mini-echo-fontify-minibuffer-window))
+        (remove-hook 'minibuffer-setup-hook #'mini-echo-fontify-minibuffer-window)
+        (mapc (##advice-remove % #'mini-echo-skip-update-functions-advice)
+              mini-echo-skip-update-functions))
     (mapc
      (##with-current-buffer (get-buffer-create %)
        (and (minibufferp) (= (buffer-size) 0) (insert " "))
@@ -329,7 +345,9 @@ If optional arg DEINIT is non-nil, remove all overlays."
     ;; NOTE every time activating minibuffer would reset face,
     ;; so re-fontify when entering inactive-minibuffer-mode
     (add-hook 'minibuffer-inactive-mode-hook #'mini-echo-fontify-minibuffer-window)
-    (add-hook 'minibuffer-setup-hook #'mini-echo-fontify-minibuffer-window)))
+    (add-hook 'minibuffer-setup-hook #'mini-echo-fontify-minibuffer-window)
+    (mapc (##advice-add % :around #'mini-echo-skip-update-functions-advice)
+          mini-echo-skip-update-functions)))
 
 (defun mini-echo-minibuffer-width ()
   "Return width of minibuffer window in current non-child frame."
@@ -354,15 +372,15 @@ On the gui, calculate length based on pixel, otherwise based on char."
 (defun mini-echo-build-info ()
   "Build mini-echo information."
   (condition-case nil
-      (if-let* ((win (get-buffer-window))
-                ((window-live-p win)))
+      (if (and (window-live-p (get-buffer-window))
+               (not mini-echo--skip-update))
           (let* ((combined (mini-echo-concat-segments))
                  (padding (+ mini-echo-right-padding
                              (mini-echo-calculate-length combined)))
                  (prop `(space :align-to (- right-fringe ,padding))))
-            (setq mini-echo--info-last-built
+            (setq mini-echo--info-cache
                   (concat (propertize " " 'cursor 1 'display prop) combined)))
-        mini-echo--info-last-built)
+        mini-echo--info-cache)
     (format "mini-echo info building error")))
 
 (defun mini-echo-update-overlays (&optional msg)

@@ -236,14 +236,3 @@ For more information, please see [mini-echo-segments.el](mini-echo-segments.el).
 
   Customize face `mini-echo-minibuffer-window` to set different background color from
   default.
-
-## Donate
-
-If you think the it's helpful for you, please consider paying a cup of coffee
-for me. Thank you! :smile:
-
-<a href="https://paypal.me/liuyinz" target="_blank">
-<img
-src="https://www.paypalobjects.com/digitalassets/c/website/marketing/apac/C2/logos-buttons/optimize/44_Grey_PayPal_Pill_Button.png"
-alt="PayPal" width="120" />
-</a>

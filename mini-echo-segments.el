@@ -33,8 +33,6 @@
 (require 'seq)
 (require 'subr-x)
 
-(require 'llama)
-
 (defvar mini-echo-ellipsis)
 (defvar meow--indicator)
 (defvar evil-state)
@@ -351,8 +349,11 @@ Otherwise, show mise section always."
       (cl-destructuring-bind (&key setup fetch update update-hook update-advice)
           props
         (pcase-let* ((`(,fetch-func ,update-func ,setup-func)
-                      (mapcar (##intern (concat "mini-echo-segment--" (format "%s-%s" % name)))
-                              '("fetch" "update" "setup"))))
+                      (mapcar
+                       (lambda (s)
+                         (intern (concat "mini-echo-segment--"
+                                         (format "%s-%s" s name))))
+                       '("fetch" "update" "setup"))))
           `(progn
              (let ((segment (make-mini-echo-segment :name ,name)))
                ;; push segment into mini echo alist
@@ -376,8 +377,10 @@ Otherwise, show mise section always."
                  (and (or ,update-hook ,update-advice (consp ',setup))
                       (defun ,setup-func ()
                         ,setup
-                        (mapc (##add-hook % ',update-func) ,update-hook)
-                        (mapc (##advice-add (car %) (cdr %) ',update-func) ,update-advice))
+                        (dolist (h ,update-hook)
+                          (add-hook h ',update-func))
+                        (dolist (v ,update-advice)
+                          (advice-add (car v) (cdr v) ',update-func)))
                       (setf to-setup ',setup-func)))
                segment))))
     (message "mini-echo-define-segment: %s properties error!" name)))
@@ -549,7 +552,10 @@ with ellipsis."
       ((string-prefix-p project filepath)
        (let* ((parts (butlast (split-string (string-remove-prefix project filepath) "/")))
               (suffix (if (<= (length parts) 4)
-                          (string-join `("" ,@(mapcar (##substring % 0 1) parts) "") "/")
+                          (string-join
+                           `("" ,@(mapcar
+                                   (lambda (s) (substring s 0 1)) parts) "")
+                           "/")
                         "/../")))
          (concat (propertize dir 'face 'mini-echo-project)
                  (propertize suffix 'face 'shadow))))
@@ -815,12 +821,13 @@ Segment appearance depends on var `vc-display-status' and faces like
                         ('running "*")
                         ('finished nil))))
        (propertize ind 'face 'compilation-mode-line-run))
-     (apply #'format "%s/%s/%s"
-            (seq-mapn (##propertize %1 'face %2)
-                      (let-alist (flycheck-count-errors flycheck-current-errors)
-                        (mapcar (##number-to-string (or % 0))
-                                (list .error .warning .info)))
-                      '(error warning success))))))
+     (let* ((errors (flycheck-count-errors flycheck-current-errors))
+            (al (push (cons 'success (alist-get 'info errors 0)) errors)))
+       (mapconcat
+        (lambda (s)
+          (propertize (number-to-string (alist-get s al)) 'face s))
+        '(error warning success)
+        "/")))))
 
 (mini-echo-define-segment "meow"
   "Return the meow status of current buffer."
@@ -983,11 +990,13 @@ Segment appearance depends on var `vc-display-status' and faces like
        (seq-sort #'string-lessp)
        (seq-filter #'identity)
        (reverse)
-       (mapcar (##mini-echo-segment--print
-                % (if (string= % (buffer-name))
-                      'mini-echo-yellow-bold
-                    'mini-echo-gray)
-                25)))
+       (mapcar
+        (lambda (x)
+          (mini-echo-segment--print
+           x (if (string= x (buffer-name))
+                 'mini-echo-yellow-bold
+               'mini-echo-gray)
+           25))))
      (propertize "|" 'face 'font-lock-doc-face))))
 
 (mini-echo-define-segment "wgrep"

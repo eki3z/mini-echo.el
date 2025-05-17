@@ -822,7 +822,7 @@ Segment appearance depends on var `vc-display-status' and faces like
                         ('finished nil))))
        (propertize ind 'face 'compilation-mode-line-run))
      (let* ((errors (flycheck-count-errors flycheck-current-errors))
-            (al (push (cons 'success (alist-get 'info errors 0)) errors)))
+            (al (push (cons 'success (or (alist-get 'info errors) 0)) errors)))
        (mapconcat
         (lambda (s)
           (propertize (number-to-string (alist-get s al)) 'face s))

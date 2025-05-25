@@ -821,11 +821,11 @@ Segment appearance depends on var `vc-display-status' and faces like
                         ('running "*")
                         ('finished nil))))
        (propertize ind 'face 'compilation-mode-line-run))
-     (let* ((errors (flycheck-count-errors flycheck-current-errors))
-            (al (push (cons 'success (or (alist-get 'info errors) 0)) errors)))
+     (let* ((errors (flycheck-count-errors flycheck-current-errors)))
+       (setq errors (push (cons 'success (alist-get 'info errors)) errors))
        (mapconcat
         (lambda (s)
-          (propertize (number-to-string (alist-get s al)) 'face s))
+          (propertize (number-to-string (or (alist-get s errors) 0)) 'face s))
         '(error warning success)
         "/")))))
 

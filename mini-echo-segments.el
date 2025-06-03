@@ -550,15 +550,10 @@ with ellipsis."
       ((not filepath) "")
       ((string-empty-p project) (propertize (concat dir "/") 'face 'shadow))
       ((string-prefix-p project filepath)
-       (let* ((parts (butlast (split-string (string-remove-prefix project filepath) "/")))
-              (suffix (if (<= (length parts) 4)
-                          (string-join
-                           `("" ,@(mapcar
-                                   (lambda (s) (substring s 0 1)) parts) "")
-                           "/")
-                        "/../")))
-         (concat (propertize dir 'face 'mini-echo-project)
-                 (propertize suffix 'face 'shadow))))
+       (concat (propertize dir 'face 'mini-echo-project) "/"
+               (when-let* ((p (butlast (split-string (string-remove-prefix project filepath) "/" t))))
+                 (concat (propertize (mapconcat (lambda (s) (substring s 0 1)) p "/") 'face 'shadow)
+                  "/"))))
       (t "")))
    (mini-echo-buffer-name-with-status))
   :update (mini-echo-update-project-root))
